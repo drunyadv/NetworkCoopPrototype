@@ -65,12 +65,7 @@ public sealed class PlayerItemInteractor : NetworkBehaviour
 
     private bool CanInteract()
     {
-        NetworkSessionState session = NetworkSessionState.Instance;
-
-        return session != null &&
-               session.Phase.Value == SessionPhase.Playing &&
-               session.GameStartTime.Value > 0 &&
-               NetworkManager.ServerTime.Time >= session.GameStartTime.Value;
+        return ConnectionService.Instance?.CanPlay == true;
     }
 
     private bool IsValidRequest(RpcParams rpcParams)

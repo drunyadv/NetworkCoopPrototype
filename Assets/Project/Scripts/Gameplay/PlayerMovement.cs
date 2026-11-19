@@ -51,26 +51,28 @@ public sealed class PlayerMovement : NetworkBehaviour
         Cursor.visible = false;
     }
 
+
     private void Update()
     {
         if (!IsSpawned || !IsOwner || !CanMove())
             return;
 
-        UpdateLook();
-        UpdateMovement();
+        bool controlsEnabled = Cursor.lockState == CursorLockMode.Locked;
+
+        if (controlsEnabled)
+            UpdateLook();
+
+        Vector2 movement = controlsEnabled
+            ? moveAction.action.ReadValue<Vector2>()
+            : Vector2.zero;
+
+        UpdateMovement(movement);
     }
+
 
     private bool CanMove()
     {
-        NetworkSessionState session = NetworkSessionState.Instance;
-
-        if (session == null || session.Phase.Value != SessionPhase.Playing)
-            return false;
-
-        double startTime = session.GameStartTime.Value;
-
-        return startTime > 0 &&
-               NetworkManager.ServerTime.Time >= startTime;
+        return ConnectionService.Instance?.CanPlay == true;
     }
 
     private void UpdateLook()
@@ -85,9 +87,8 @@ public sealed class PlayerMovement : NetworkBehaviour
         cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
     }
 
-    private void UpdateMovement()
+    private void UpdateMovement(Vector2 input)
     {
-        Vector2 input = moveAction.action.ReadValue<Vector2>();
         input = Vector2.ClampMagnitude(input, 1f);
 
         Vector3 direction =

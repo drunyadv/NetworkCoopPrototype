@@ -100,6 +100,25 @@ public sealed class NetworkSceneLoader : MonoBehaviour
         }
     }
 
+
+
+    public bool CanPlay
+    {
+        get
+        {
+            if (!registered || !localGameReady)
+                return false;
+
+            NetworkSessionState session = NetworkSessionState.Instance;
+
+            return session != null &&
+                session.Phase.Value == SessionPhase.Playing &&
+                session.GameStartTime.Value > 0 &&
+                networkManager.ServerTime.Time >= session.GameStartTime.Value;
+        }
+    }
+
+
     private void OnSceneEvent(SceneEvent sceneEvent)
     {
         if (sceneEvent.SceneEventType == SceneEventType.Synchronize)

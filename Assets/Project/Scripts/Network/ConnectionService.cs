@@ -36,6 +36,7 @@ public sealed class ConnectionService : MonoBehaviour
 
     public bool IsHost => networkManager != null && networkManager.IsHost;
     public bool IsConnected => networkManager != null && networkManager.IsConnectedClient;
+    public bool CanPlay => sceneLoader != null && sceneLoader.CanPlay;
 
     [Serializable]
     private sealed class PlayerCredentials

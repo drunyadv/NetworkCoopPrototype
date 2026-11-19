@@ -21,6 +21,8 @@ public sealed class MainMenuView : MonoBehaviour
 
     private void Start()
     {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
         connection = ConnectionService.Instance;
 
         if (connection == null)
