@@ -1,3 +1,4 @@
+
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -52,7 +53,7 @@ public sealed class MainMenuView : MonoBehaviour
         if (!TryGetPort(out ushort port))
             return;
 
-        connection.StartHost(port);
+        connection.StartHost(playerNameInput.text, port);
     }
 
     private void OnJoinClicked()
@@ -68,7 +69,7 @@ public sealed class MainMenuView : MonoBehaviour
             return;
         }
 
-        connection.Join(address, port);
+        connection.Join(playerNameInput.text, address, port);
     }
 
     private bool TryGetPort(out ushort port)

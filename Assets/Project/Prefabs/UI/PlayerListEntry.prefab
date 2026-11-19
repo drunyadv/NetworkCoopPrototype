@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 872617204169125312}
   - component: {fileID: 803164899690238254}
   - component: {fileID: 7182671532311761708}
+  - component: {fileID: 3361215142444859419}
   m_Layer: 5
   m_Name: PlayerListEntry
   m_TagString: Untagged
@@ -125,6 +126,20 @@ MonoBehaviour:
   m_FlexibleWidth: -1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
+--- !u!114 &3361215142444859419
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1904337282462034894}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e9d76e256aaa2b4b82c7b5f76050fbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerListEntryView
+  playerName: {fileID: 477651378330213183}
+  hostIndicator: {fileID: 7303937825616256700}
 --- !u!1 &2671774802146011307
 GameObject:
   m_ObjectHideFlags: 0
