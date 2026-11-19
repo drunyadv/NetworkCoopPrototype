@@ -132,6 +132,7 @@ GameObject:
   - component: {fileID: 1047281355}
   - component: {fileID: 1047281358}
   - component: {fileID: 1047281359}
+  - component: {fileID: 1047281360}
   m_Layer: 0
   m_Name: NetworkInfrastructure
   m_TagString: Untagged
@@ -243,6 +244,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ConnectionService
   sessionPrefab: {fileID: 5540572364459082821, guid: ac0a58d53b35732448277af47023aa26, type: 3}
   sceneLoader: {fileID: 1047281359}
+  playerSpawner: {fileID: 1047281360}
 --- !u!114 &1047281359
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -256,6 +258,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkSceneLoader
   loadingScreen: {fileID: 1264931460}
+--- !u!114 &1047281360
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1047281354}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0b1818e648aee2f4a9e2bf8a6acba47f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerSpawner
+  playerPrefab: {fileID: 24899870092003631, guid: 1cafcfca8b530b04a9f4869c689847d2, type: 3}
 --- !u!1 &1211092220
 GameObject:
   m_ObjectHideFlags: 0

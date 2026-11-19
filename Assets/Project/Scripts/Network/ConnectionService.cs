@@ -17,6 +17,7 @@ public sealed class ConnectionService : MonoBehaviour
 
     [SerializeField] private NetworkSessionState sessionPrefab;
     [SerializeField] private NetworkSceneLoader sceneLoader;
+    [SerializeField] private PlayerSpawner playerSpawner;
 
     private const int MaxPlayers = 4;
     private const string MenuScene = "1MainMenu";
@@ -92,6 +93,7 @@ public sealed class ConnectionService : MonoBehaviour
             return false;
         }
         sceneLoader.RegisterSession();
+        playerSpawner.RegisterSession();
 
         NetworkSessionState session = Instantiate(sessionPrefab);
         session.GetComponent<NetworkObject>().Spawn(false);
@@ -364,6 +366,7 @@ public sealed class ConnectionService : MonoBehaviour
 
         returningToMenu = true;
         sceneLoader.ResetSession();
+        playerSpawner.ResetSession();
 
         if (networkManager.IsListening)
             networkManager.Shutdown();
