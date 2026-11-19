@@ -3,6 +3,13 @@ using System;
 using Unity.Netcode;
 using UnityEngine;
 
+    public enum SessionPhase : byte
+    {
+        Lobby,
+        Loading,
+        Playing
+    }
+
 public sealed class NetworkSessionState : NetworkBehaviour
 {
     public static NetworkSessionState Instance { get; private set; }
@@ -11,7 +18,40 @@ public sealed class NetworkSessionState : NetworkBehaviour
 
     private NetworkList<PlayerInfo> players;
 
+
+    public readonly NetworkVariable<SessionPhase> Phase = new(SessionPhase.Lobby);
+    public readonly NetworkVariable<double> GameStartTime = new(0);
+
     public int PlayerCount => players.Count;
+
+    public bool BeginLoading()
+    {
+        if (!IsServer || Phase.Value != SessionPhase.Lobby)
+            return false;
+
+        GameStartTime.Value = 0;
+        Phase.Value = SessionPhase.Loading;
+
+        return true;
+    }
+
+    public void BeginPlaying(double startTime)
+    {
+        if (!IsServer || Phase.Value != SessionPhase.Loading)
+            return;
+
+        GameStartTime.Value = startTime;
+        Phase.Value = SessionPhase.Playing;
+    }
+
+    public void ReturnToLobby()
+    {
+        if (!IsServer)
+            return;
+
+        GameStartTime.Value = 0;
+        Phase.Value = SessionPhase.Lobby;
+    }
 
     private void Awake()
     {

@@ -16,6 +16,7 @@ public sealed class ConnectionService : MonoBehaviour
     public event Action<string> StatusChanged;
 
     [SerializeField] private NetworkSessionState sessionPrefab;
+    [SerializeField] private NetworkSceneLoader sceneLoader;
 
     private const int MaxPlayers = 4;
     private const string MenuScene = "1MainMenu";
@@ -90,6 +91,7 @@ public sealed class ConnectionService : MonoBehaviour
             SetStatus("Failed to start host");
             return false;
         }
+        sceneLoader.RegisterSession();
 
         NetworkSessionState session = Instantiate(sessionPrefab);
         session.GetComponent<NetworkObject>().Spawn(false);
@@ -140,22 +142,14 @@ public sealed class ConnectionService : MonoBehaviour
             SetStatus("Failed to start client");
             return false;
         }
+        sceneLoader.RegisterSession();
 
         return true;
     }
 
     public void StartGame()
     {
-        if (!networkManager.IsHost)
-            return;
-
-        var result = networkManager.SceneManager.LoadScene(
-            GameScene,
-            LoadSceneMode.Single
-        );
-
-        if (result != SceneEventProgressStatus.Started)
-            SetStatus($"Failed to load game: {result}");
+        sceneLoader.StartGame();
     }
 
     public void Leave()
@@ -179,6 +173,16 @@ public sealed class ConnectionService : MonoBehaviour
             response.Approved = true;
             return;
         }
+
+
+    NetworkSessionState session = NetworkSessionState.Instance;
+
+    if (session != null && session.Phase.Value == SessionPhase.Loading)
+    {
+        Reject(response, "Match is loading. Try again shortly.");
+        return;
+    }
+
 
         if (networkManager.ConnectedClientsIds.Count + pendingPlayers.Count >= MaxPlayers)
         {
@@ -359,6 +363,7 @@ public sealed class ConnectionService : MonoBehaviour
             yield break;
 
         returningToMenu = true;
+        sceneLoader.ResetSession();
 
         if (networkManager.IsListening)
             networkManager.Shutdown();
