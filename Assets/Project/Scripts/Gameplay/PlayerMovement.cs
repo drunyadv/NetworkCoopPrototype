@@ -1,4 +1,3 @@
-
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -51,28 +50,19 @@ public sealed class PlayerMovement : NetworkBehaviour
         Cursor.visible = false;
     }
 
-
     private void Update()
     {
-        if (!IsSpawned || !IsOwner || !CanMove())
+        if (!IsSpawned || !IsOwner || ConnectionService.Instance?.CanPlay != true)
             return;
 
-        bool controlsEnabled = Cursor.lockState == CursorLockMode.Locked;
-
-        if (controlsEnabled)
+        Vector2 movement = Vector2.zero;
+        if (Cursor.lockState == CursorLockMode.Locked)
+        {
             UpdateLook();
-
-        Vector2 movement = controlsEnabled
-            ? moveAction.action.ReadValue<Vector2>()
-            : Vector2.zero;
+            movement = moveAction.action.ReadValue<Vector2>();
+        }
 
         UpdateMovement(movement);
-    }
-
-
-    private bool CanMove()
-    {
-        return ConnectionService.Instance?.CanPlay == true;
     }
 
     private void UpdateLook()

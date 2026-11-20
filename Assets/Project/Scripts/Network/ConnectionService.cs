@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -20,20 +21,19 @@ public sealed class ConnectionService : MonoBehaviour
     [SerializeField] private PlayerSpawner playerSpawner;
 
     private const float ConnectionTimeout = 12f;
-    private Coroutine connectionTimeoutRoutine;
-
-    private const int MaxPlayers = 4;
+    public const int MaxPlayers = 4;
     private const string ProtocolVersion = "1";
     private const string MenuScene = "1MainMenu";
     private const string LobbyScene = "2Lobby";
-    private const string GameScene = "3Game";
+    private const int MaxNameLength = 24;
+    private const int MaxNameBytes = 60;
 
     private NetworkManager networkManager;
     private UnityTransport transport;
 
     private readonly Dictionary<ulong, PlayerCredentials> pendingPlayers = new();
 
-    private PlayerCredentials hostCredentials;
+    private Coroutine connectionTimeoutRoutine;
     private bool returningToMenu;
 
     public string LastMessage { get; private set; } = "Not connected";
@@ -41,7 +41,6 @@ public sealed class ConnectionService : MonoBehaviour
     public bool IsHost => networkManager != null && networkManager.IsHost;
     public bool IsConnected => networkManager != null && networkManager.IsConnectedClient;
     public bool CanPlay => sceneLoader != null && sceneLoader.CanPlay;
-
 
     [Serializable]
     private sealed class PlayerCredentials
@@ -51,7 +50,6 @@ public sealed class ConnectionService : MonoBehaviour
         public string ProtocolVersion;
         public string BuildVersion;
     }
-
 
     private void Awake()
     {
@@ -86,7 +84,7 @@ public sealed class ConnectionService : MonoBehaviour
             return false;
         }
 
-        if (!TryCreateCredentials(playerName, out hostCredentials))
+        if (!TryCreateCredentials(playerName, out var hostCredentials))
             return false;
 
         pendingPlayers.Clear();
@@ -101,6 +99,7 @@ public sealed class ConnectionService : MonoBehaviour
             SetStatus("Failed to start host");
             return false;
         }
+
         sceneLoader.RegisterSession();
         playerSpawner.RegisterSession();
 
@@ -153,6 +152,7 @@ public sealed class ConnectionService : MonoBehaviour
             SetStatus("Failed to start client");
             return false;
         }
+
         connectionTimeoutRoutine = StartCoroutine(WaitForConnection());
         sceneLoader.RegisterSession();
 
@@ -186,17 +186,15 @@ public sealed class ConnectionService : MonoBehaviour
             return;
         }
 
+        NetworkSessionState session = NetworkSessionState.Instance;
+        if (session != null && session.Phase.Value == SessionPhase.Loading)
+        {
+            Reject(response, "Match is loading. Try again shortly.");
+            return;
+        }
 
-    NetworkSessionState session = NetworkSessionState.Instance;
-
-    if (session != null && session.Phase.Value == SessionPhase.Loading)
-    {
-        Reject(response, "Match is loading. Try again shortly.");
-        return;
-    }
-
-
-        if (networkManager.ConnectedClientsIds.Count + pendingPlayers.Count >= MaxPlayers)
+        int occupiedSlots = networkManager.ConnectedClientsIds.Union(pendingPlayers.Keys).Count();
+        if (occupiedSlots >= MaxPlayers)
         {
             Reject(response, "Session is full");
             return;
@@ -208,16 +206,14 @@ public sealed class ConnectionService : MonoBehaviour
             return;
         }
 
-    if (credentials.ProtocolVersion != ProtocolVersion ||
-        credentials.BuildVersion != Application.version)
-    {
-        Reject(response, "Incompatible game version");
-        return;
-    }
+        if (credentials.ProtocolVersion != ProtocolVersion ||
+            credentials.BuildVersion != Application.version)
+        {
+            Reject(response, "Incompatible game version");
+            return;
+        }
 
-
-        if (NetworkSessionState.Instance != null &&
-            NetworkSessionState.Instance.ContainsPlayerId(credentials.PlayerId))
+        if (session != null && session.ContainsPlayerId(credentials.PlayerId))
         {
             Reject(response, "Player is already connected");
             return;
@@ -244,51 +240,32 @@ public sealed class ConnectionService : MonoBehaviour
         response.Reason = reason;
     }
 
-
     public void ShowConnectionError(string message)
     {
         SetStatus(message);
     }
 
-
     private void OnClientConnected(ulong clientId)
     {
-        if (networkManager.IsServer)
+        if (!networkManager.IsServer)
         {
-            if (clientId == NetworkManager.ServerClientId)
-                return;
-
-            if (pendingPlayers.TryGetValue(clientId, out var credentials))
-            {
-                pendingPlayers.Remove(clientId);
-
-                NetworkSessionState.Instance?.AddPlayer(new PlayerInfo(
-                    clientId,
-                    credentials.PlayerId,
-                    credentials.Name
-                ));
-            }
-        
-        if (clientId == networkManager.LocalClientId)
-        {
-            if (connectionTimeoutRoutine != null)
-            {
-                StopCoroutine(connectionTimeoutRoutine);
-                connectionTimeoutRoutine = null;
-            }
-
-            SetStatus("Connected");
-}
-
+            if (clientId == networkManager.LocalClientId)
+                SetStatus("Connected");
 
             return;
         }
 
-        if (clientId == networkManager.LocalClientId)
-            SetStatus("Connected");
+        if (clientId == NetworkManager.ServerClientId)
+            return;
+
+        if (pendingPlayers.TryGetValue(clientId, out var credentials))
+        {
+            pendingPlayers.Remove(clientId);
+            NetworkSessionState.Instance?.AddPlayer(
+                new PlayerInfo(clientId, credentials.PlayerId, credentials.Name));
+        }
     }
 
-    
     private void OnClientDisconnected(ulong clientId)
     {
         if (returningToMenu)
@@ -310,7 +287,6 @@ public sealed class ConnectionService : MonoBehaviour
         StartCoroutine(ReturnToMenuRoutine());
     }
 
-
     private bool TryCreateCredentials(
         string playerName,
         out PlayerCredentials credentials)
@@ -320,10 +296,10 @@ public sealed class ConnectionService : MonoBehaviour
         string name = playerName?.Trim() ?? string.Empty;
 
         if (name.Length == 0 ||
-            name.Length > 24 ||
-            Encoding.UTF8.GetByteCount(name) > 60)
+            name.Length > MaxNameLength ||
+            Encoding.UTF8.GetByteCount(name) > MaxNameBytes)
         {
-            SetStatus("Name must be 1-24 characters");
+            SetStatus($"Name must be 1-{MaxNameLength} characters");
             return false;
         }
 
@@ -337,29 +313,28 @@ public sealed class ConnectionService : MonoBehaviour
             PlayerPrefs.Save();
         }
 
-    credentials = new PlayerCredentials
-    {
-        PlayerId = id,
-        Name = name,
-        ProtocolVersion = ProtocolVersion,
-        BuildVersion = Application.version
-    };
-
+        credentials = new PlayerCredentials
+        {
+            PlayerId = id,
+            Name = name,
+            ProtocolVersion = ProtocolVersion,
+            BuildVersion = Application.version
+        };
 
         return true;
     }
 
     private static string GetPlayerIdKey()
     {
+        const string profilePrefix = "--profile=";
         foreach (string arg in Environment.GetCommandLineArgs())
         {
-            if (arg.StartsWith("--profile=", StringComparison.OrdinalIgnoreCase))
-                return "NetworkCoop.PlayerId." + arg.Substring(10);
+            if (arg.StartsWith(profilePrefix, StringComparison.OrdinalIgnoreCase))
+                return "NetworkCoop.PlayerId." + arg.Substring(profilePrefix.Length);
         }
 
         return "NetworkCoop.PlayerId.default";
     }
-
 
     private IEnumerator WaitForConnection()
     {
@@ -373,7 +348,6 @@ public sealed class ConnectionService : MonoBehaviour
         SetStatus("Connection timed out");
         StartCoroutine(ReturnToMenuRoutine());
     }
-
 
     private void SetConnectionPayload(PlayerCredentials credentials)
     {
@@ -410,8 +384,8 @@ public sealed class ConnectionService : MonoBehaviour
         string name = credentials.Name;
 
         return name == name.Trim() &&
-               name.Length <= 24 &&
-               Encoding.UTF8.GetByteCount(name) <= 60;
+               name.Length <= MaxNameLength &&
+               Encoding.UTF8.GetByteCount(name) <= MaxNameBytes;
     }
 
     private IEnumerator ReturnToMenuRoutine()
@@ -421,11 +395,11 @@ public sealed class ConnectionService : MonoBehaviour
 
         returningToMenu = true;
 
-    if (connectionTimeoutRoutine != null)
-    {
-        StopCoroutine(connectionTimeoutRoutine);
-        connectionTimeoutRoutine = null;
-    }
+        if (connectionTimeoutRoutine != null)
+        {
+            StopCoroutine(connectionTimeoutRoutine);
+            connectionTimeoutRoutine = null;
+        }
 
         sceneLoader.ResetSession();
         playerSpawner.ResetSession();
@@ -442,31 +416,16 @@ public sealed class ConnectionService : MonoBehaviour
         returningToMenu = false;
     }
 
-
     public void KickPlayer(ulong clientId)
     {
-        if (!networkManager.IsHost)
+        if (!networkManager.IsHost || clientId == NetworkManager.ServerClientId)
             return;
 
-        if (clientId == NetworkManager.ServerClientId)
-            return;
-
-        bool isConnected = false;
-        foreach (ulong connectedClientId in networkManager.ConnectedClientsIds)
-        {
-            if (connectedClientId == clientId)
-            {
-                isConnected = true;
-                break;
-            }
-        }
-
-        if (!isConnected)
+        if (!networkManager.ConnectedClients.ContainsKey(clientId))
             return;
 
         networkManager.DisconnectClient(clientId, "You were kicked by the host");
     }
-
 
     private void SetStatus(string message)
     {

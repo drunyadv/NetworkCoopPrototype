@@ -80,7 +80,8 @@ public sealed class PhysicsItem : NetworkBehaviour
         body.angularVelocity = Vector3.zero;
 
         if (!NetworkObject.IsOwnedByServer)
-        NetworkObject.RemoveOwnership();
+            NetworkObject.RemoveOwnership();
+
         body.WakeUp();
     }
 

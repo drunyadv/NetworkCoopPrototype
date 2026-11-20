@@ -1,7 +1,7 @@
 using System.Collections.Generic;
+using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
-using System.Linq;
 using UnityEngine.SceneManagement;
 
 [RequireComponent(typeof(NetworkManager))]
@@ -82,25 +82,17 @@ public sealed class NetworkSceneLoader : MonoBehaviour
         loadingScreen.Show("Loading game...");
         UpdateProgress();
 
-        SceneEventProgressStatus status = sceneManager.LoadScene(
-            GameScene,
-            LoadSceneMode.Single
-        );
+        var status = sceneManager.LoadScene(GameScene, LoadSceneMode.Single);
+        if (status == SceneEventProgressStatus.Started)
+            return;
 
-        if (status != SceneEventProgressStatus.Started)
-        {
-            Debug.LogError($"Scene load failed: {status}");
-
-            loadingGame = false;
-            expectedClients.Clear();
-            loadedClients.Clear();
-
-            session.ReturnToLobby();
-            loadingScreen.Hide();
-        }
+        Debug.LogError($"Scene load failed: {status}");
+        loadingGame = false;
+        expectedClients.Clear();
+        loadedClients.Clear();
+        session.ReturnToLobby();
+        loadingScreen.Hide();
     }
-
-
 
     public bool CanPlay
     {
@@ -112,46 +104,35 @@ public sealed class NetworkSceneLoader : MonoBehaviour
             NetworkSessionState session = NetworkSessionState.Instance;
 
             return session != null &&
-                session.Phase.Value == SessionPhase.Playing &&
-                session.GameStartTime.Value > 0 &&
-                networkManager.ServerTime.Time >= session.GameStartTime.Value;
+                   session.Phase.Value == SessionPhase.Playing &&
+                   session.GameStartTime.Value > 0 &&
+                   networkManager.ServerTime.Time >= session.GameStartTime.Value;
         }
     }
 
-
     private void OnSceneEvent(SceneEvent sceneEvent)
     {
-        if (sceneEvent.SceneEventType == SceneEventType.Synchronize)
-        {
-            if (!networkManager.IsServer)
-                loadingScreen.Show("Joining session...");
-
-            return;
-        }
-
-        if (sceneEvent.SceneEventType == SceneEventType.SynchronizeComplete)
-        {
-            if (!networkManager.IsServer)
-                OnLocalSynchronizationComplete();
-
-            return;
-        }
-
-        if (sceneEvent.SceneName != GameScene)
-            return;
-
+        bool isGameScene = sceneEvent.SceneName == GameScene;
         switch (sceneEvent.SceneEventType)
         {
-            case SceneEventType.Load:
+            case SceneEventType.Synchronize when !networkManager.IsServer:
+                loadingScreen.Show("Joining session...");
+                break;
+
+            case SceneEventType.SynchronizeComplete when !networkManager.IsServer:
+                OnLocalSynchronizationComplete();
+                break;
+
+            case SceneEventType.Load when isGameScene:
                 localGameReady = false;
                 loadingScreen.Show("Loading game...");
                 break;
 
-            case SceneEventType.LoadComplete:
+            case SceneEventType.LoadComplete when isGameScene:
                 OnLoadComplete(sceneEvent.ClientId);
                 break;
 
-            case SceneEventType.LoadEventCompleted:
+            case SceneEventType.LoadEventCompleted when isGameScene:
                 OnLoadEventCompleted(sceneEvent);
                 break;
         }
@@ -265,17 +246,7 @@ public sealed class NetworkSceneLoader : MonoBehaviour
 
     private void Update()
     {
-        if (!registered || !localGameReady || !loadingScreen.IsVisible)
-            return;
-
-        NetworkSessionState session = NetworkSessionState.Instance;
-
-        if (session == null || session.Phase.Value != SessionPhase.Playing)
-            return;
-
-        double startTime = session.GameStartTime.Value;
-
-        if (startTime > 0 && networkManager.ServerTime.Time >= startTime)
+        if (CanPlay && loadingScreen.IsVisible)
             loadingScreen.Hide();
     }
 

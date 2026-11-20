@@ -1,4 +1,3 @@
-
 using System.Collections;
 using TMPro;
 using UnityEngine;
@@ -82,29 +81,8 @@ public sealed class GameHUDController : MonoBehaviour
 
     private void RefreshPlayerList()
     {
-        if (session == null)
-            return;
-
-        for (int i = playerListContent.childCount - 1; i >= 0; i--)
-            Destroy(playerListContent.GetChild(i).gameObject);
-
-        for (int i = 0; i < session.PlayerCount; i++)
-        {
-            PlayerInfo player = session.GetPlayer(i);
-
-            PlayerListEntryView entry = Instantiate(
-                playerEntryPrefab,
-                playerListContent
-            );
-
-            entry.SetPlayer(
-                player,
-                player.ClientId == 0
-            );
-        }
-
-        if (playerCountText != null)
-            playerCountText.text = $"Players: {session.PlayerCount}/4";
+        if (session != null)
+            PlayerListView.Rebuild(session, playerListContent, playerEntryPrefab, playerCountText);
     }
 
     private void Resume()

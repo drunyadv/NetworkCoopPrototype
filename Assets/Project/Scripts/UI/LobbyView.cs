@@ -1,7 +1,6 @@
-
+using System;
 using System.Collections;
 using TMPro;
-using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -45,30 +44,11 @@ public sealed class LobbyView : MonoBehaviour
 
     private void RefreshPlayerList()
     {
-        for (int i = playerListContent.childCount - 1; i >= 0; i--)
-            Destroy(playerListContent.GetChild(i).gameObject);
+        Action<ulong> onKick = null;
+        if (connection != null && connection.IsHost)
+            onKick = connection.KickPlayer;
 
-        for (int i = 0; i < session.PlayerCount; i++)
-        {
-            PlayerInfo player = session.GetPlayer(i);
-
-            PlayerListEntryView entry = Instantiate(
-                playerEntryPrefab,
-                playerListContent
-            );
-
-            bool isHost = player.ClientId == NetworkManager.ServerClientId;
-            
-            entry.SetPlayer(
-                player,
-                isHost,
-                connection != null && connection.IsHost,
-                clientId => connection.KickPlayer(clientId)
-            );
-
-        }
-
-        playerCountText.text = $"Players: {session.PlayerCount}/4";
+        PlayerListView.Rebuild(session, playerListContent, playerEntryPrefab, playerCountText, onKick);
     }
 
     private void OnStartGameClicked()

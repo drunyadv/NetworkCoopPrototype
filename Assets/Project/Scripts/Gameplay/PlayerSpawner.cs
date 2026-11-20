@@ -1,4 +1,3 @@
-
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -42,7 +41,6 @@ public sealed class PlayerSpawner : MonoBehaviour
         networkManager.OnClientConnectedCallback += OnClientConnected;
 
         registered = true;
-        Debug.Log("[PlayerSpawner] Registered.");
     }
 
     public void ResetSession()
@@ -63,21 +61,11 @@ public sealed class PlayerSpawner : MonoBehaviour
 
     private void OnSceneEvent(SceneEvent sceneEvent)
     {
-        if (!networkManager.IsServer)
-            return;
-
-        Debug.Log(
-            $"[PlayerSpawner] Scene: {sceneEvent.SceneName}, " +
-            $"Event: {sceneEvent.SceneEventType}"
-        );
-
-        if (sceneEvent.SceneName != GameScene ||
+        if (!networkManager.IsServer || sceneEvent.SceneName != GameScene ||
             sceneEvent.SceneEventType != SceneEventType.LoadEventCompleted)
         {
             return;
         }
-
-        Debug.Log("[PlayerSpawner] Game loaded. Spawning players.");
 
         foreach (ulong clientId in networkManager.ConnectedClientsIds)
             SpawnPlayer(clientId);
@@ -107,8 +95,7 @@ public sealed class PlayerSpawner : MonoBehaviour
             return;
         }
 
-        if (!networkManager.ConnectedClients.TryGetValue(
-                clientId, out NetworkClient client))
+        if (!networkManager.ConnectedClients.TryGetValue(clientId, out NetworkClient client))
         {
             Debug.LogError($"[PlayerSpawner] Client {clientId} not found.");
             return;
@@ -128,27 +115,14 @@ public sealed class PlayerSpawner : MonoBehaviour
             return;
         }
 
-        int spawnIndex = -1;
-
-        for (int i = 0; i < session.PlayerCount; i++)
+        int spawnIndex = session.IndexOfClient(clientId);
+        if (spawnIndex < 0)
         {
-            if (session.GetPlayer(i).ClientId == clientId)
-            {
-                spawnIndex = i;
-                break;
-            }
-        }
-
-        if (spawnIndex == -1)
-        {
-            Debug.LogError(
-                $"[PlayerSpawner] Client {clientId} is missing from the roster."
-            );
+            Debug.LogError($"[PlayerSpawner] Client {clientId} is missing from the roster.");
             return;
         }
 
-        GameSpawnPoints spawnPoints =
-            FindFirstObjectByType<GameSpawnPoints>();
+        GameSpawnPoints spawnPoints = FindFirstObjectByType<GameSpawnPoints>();
 
         if (spawnPoints == null)
         {
@@ -164,17 +138,11 @@ public sealed class PlayerSpawner : MonoBehaviour
             return;
         }
 
-        NetworkObject player = Instantiate(
-            playerPrefab,
-            point.position,
-            point.rotation
-        );
+        NetworkObject player = Instantiate(playerPrefab, point.position, point.rotation);
 
         player.SpawnAsPlayerObject(clientId, true);
 
-        Debug.Log(
-            $"[PlayerSpawner] Spawned player {clientId} at {point.position}"
-        );
+        Debug.Log($"[PlayerSpawner] Spawned player {clientId} at {point.position}");
     }
 
     private void OnDestroy()

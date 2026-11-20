@@ -13,7 +13,6 @@ public sealed class PlayerListEntryView : MonoBehaviour
     public void SetPlayer(
         PlayerInfo player,
         bool isHost,
-        bool canKick = false,
         Action<ulong> onKick = null)
     {
         playerName.text = player.Name.ToString();
@@ -25,9 +24,10 @@ public sealed class PlayerListEntryView : MonoBehaviour
             : new Color32(174, 189, 208, 255);
 
         kickButton.onClick.RemoveAllListeners();
-        kickButton.gameObject.SetActive(canKick && !isHost);
+        bool showKickButton = onKick != null && !isHost;
+        kickButton.gameObject.SetActive(showKickButton);
 
-        if (canKick && !isHost && onKick != null)
+        if (showKickButton)
         {
             ulong clientId = player.ClientId;
             kickButton.onClick.AddListener(() => onKick(clientId));

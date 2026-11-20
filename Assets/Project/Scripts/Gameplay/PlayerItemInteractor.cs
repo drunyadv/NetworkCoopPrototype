@@ -24,6 +24,9 @@ public sealed class PlayerItemInteractor : NetworkBehaviour
     private PhysicsItem heldItem;
     private float nextSpawnTime;
 
+    private bool IsHoldingItem => heldItem != null && heldItem.IsSpawned &&
+                                  heldItem.HolderClientId.Value == OwnerClientId;
+
     private void Update()
     {
         if (!IsSpawned || !IsOwner || !CanInteract())
@@ -36,31 +39,24 @@ public sealed class PlayerItemInteractor : NetworkBehaviour
             SpawnItemRpc();
 
         if (interactAction.action.WasPressedThisFrame())
-        {
-            ulong targetId = ulong.MaxValue;
-
-            if (Physics.Raycast(
-                    playerCamera.transform.position,
-                    playerCamera.transform.forward,
-                    out RaycastHit hit,
-                    pickupDistance,
-                    ~0,
-                    QueryTriggerInteraction.Ignore))
-            {
-                PhysicsItem item = hit.collider.GetComponentInParent<PhysicsItem>();
-
-                if (item != null && item.IsSpawned)
-                    targetId = item.NetworkObjectId;
-            }
-
-            InteractRpc(targetId);
-        }
+            InteractRpc(GetAimedItemId());
 
         if (throwAction.action.WasPressedThisFrame())
             ThrowItemRpc(playerCamera.transform.forward);
 
         if (deleteAction.action.WasPressedThisFrame())
             DeleteItemRpc();
+    }
+
+    private ulong GetAimedItemId()
+    {
+        Transform aim = playerCamera.transform;
+        if (!Physics.Raycast(aim.position, aim.forward, out RaycastHit hit,
+                pickupDistance, ~0, QueryTriggerInteraction.Ignore))
+            return ulong.MaxValue;
+
+        PhysicsItem item = hit.collider.GetComponentInParent<PhysicsItem>();
+        return item != null && item.IsSpawned ? item.NetworkObjectId : ulong.MaxValue;
     }
 
     private bool CanInteract()
@@ -85,9 +81,7 @@ public sealed class PlayerItemInteractor : NetworkBehaviour
         if (Time.time < nextSpawnTime)
             return;
 
-        int itemCount = FindObjectsByType<PhysicsItem>(
-            FindObjectsSortMode.None
-        ).Length;
+        int itemCount = FindObjectsByType<PhysicsItem>(FindObjectsSortMode.None).Length;
 
         if (itemCount >= MaxItems)
             return;
@@ -98,11 +92,7 @@ public sealed class PlayerItemInteractor : NetworkBehaviour
             + Vector3.up * 1.5f
             + transform.forward * 2.25f;
 
-        PhysicsItem item = Instantiate(
-            itemPrefab,
-            position,
-            Quaternion.identity
-        );
+        PhysicsItem item = Instantiate(itemPrefab, position, Quaternion.identity);
 
         item.NetworkObject.Spawn(true);
     }
@@ -115,8 +105,7 @@ public sealed class PlayerItemInteractor : NetworkBehaviour
         if (!IsValidRequest(rpcParams))
             return;
 
-        if (heldItem != null && heldItem.IsSpawned &&
-            heldItem.HolderClientId.Value == OwnerClientId)
+        if (IsHoldingItem)
         {
             heldItem.Release();
             heldItem = null;
@@ -144,21 +133,14 @@ public sealed class PlayerItemInteractor : NetworkBehaviour
         Vector3 direction,
         RpcParams rpcParams = default)
     {
-        if (!IsValidRequest(rpcParams) ||
-            heldItem == null ||
-            !heldItem.IsSpawned ||
-            heldItem.HolderClientId.Value != OwnerClientId)
-        {
-            return;
-        }
-
-        if (!IsValidDirection(direction))
+        if (!IsValidRequest(rpcParams) || !IsHoldingItem)
             return;
 
-        Vector3 horizontal = Vector3.ProjectOnPlane(
-            direction,
-            Vector3.up
-        );
+        float lengthSquared = direction.sqrMagnitude;
+        if (!(lengthSquared > 0.5f && lengthSquared < 1.5f))
+            return;
+
+        Vector3 horizontal = Vector3.ProjectOnPlane(direction, Vector3.up);
 
         if (horizontal.sqrMagnitude > 0.01f &&
             Vector3.Angle(transform.forward, horizontal) > 85f)
@@ -173,32 +155,11 @@ public sealed class PlayerItemInteractor : NetworkBehaviour
     [Rpc(SendTo.Server)]
     private void DeleteItemRpc(RpcParams rpcParams = default)
     {
-        if (!IsValidRequest(rpcParams) ||
-            heldItem == null ||
-            !heldItem.IsSpawned ||
-            heldItem.HolderClientId.Value != OwnerClientId)
-        {
+        if (!IsValidRequest(rpcParams) || !IsHoldingItem)
             return;
-        }
 
         heldItem.Delete();
         heldItem = null;
-    }
-
-    private static bool IsValidDirection(Vector3 direction)
-    {
-        if (float.IsNaN(direction.x) ||
-            float.IsNaN(direction.y) ||
-            float.IsNaN(direction.z) ||
-            float.IsInfinity(direction.x) ||
-            float.IsInfinity(direction.y) ||
-            float.IsInfinity(direction.z))
-        {
-            return false;
-        }
-
-        return direction.sqrMagnitude > 0.5f &&
-               direction.sqrMagnitude < 1.5f;
     }
 
     public override void OnNetworkDespawn()

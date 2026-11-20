@@ -1,24 +1,23 @@
-
 using System;
 using Unity.Netcode;
 using UnityEngine;
 
-    public enum SessionPhase : byte
-    {
-        Lobby,
-        Loading,
-        Playing
-    }
+public enum SessionPhase : byte
+{
+    Lobby,
+    Loading,
+    Playing
+}
 
 public sealed class NetworkSessionState : NetworkBehaviour
 {
     public static NetworkSessionState Instance { get; private set; }
-    private float nextPingUpdate;
-    private const float PingUpdateInterval = 1f;
+
     public event Action PlayersChanged;
 
+    private const float PingUpdateInterval = 1f;
+    private float nextPingUpdate;
     private NetworkList<PlayerInfo> players;
-
 
     public readonly NetworkVariable<SessionPhase> Phase = new(SessionPhase.Lobby);
     public readonly NetworkVariable<double> GameStartTime = new(0);
@@ -35,8 +34,6 @@ public sealed class NetworkSessionState : NetworkBehaviour
 
         return true;
     }
-
-
 
     private void Update()
     {
@@ -55,7 +52,7 @@ public sealed class NetworkSessionState : NetworkBehaviour
                 ? 0UL
                 : transport.GetCurrentRtt(player.ClientId);
 
-            ushort ping = (ushort)System.Math.Min(rtt, (ulong)ushort.MaxValue);
+            ushort ping = (ushort)Math.Min(rtt, (ulong)ushort.MaxValue);
 
             if (player.PingMs == ping)
                 continue;
@@ -64,7 +61,6 @@ public sealed class NetworkSessionState : NetworkBehaviour
             players[i] = player;
         }
     }
-
 
     public void BeginPlaying(double startTime)
     {
@@ -110,6 +106,17 @@ public sealed class NetworkSessionState : NetworkBehaviour
         return players[index];
     }
 
+    public int IndexOfClient(ulong clientId)
+    {
+        for (int i = 0; i < players.Count; i++)
+        {
+            if (players[i].ClientId == clientId)
+                return i;
+        }
+
+        return -1;
+    }
+
     public bool ContainsPlayerId(string playerId)
     {
         for (int i = 0; i < players.Count; i++)
@@ -126,16 +133,11 @@ public sealed class NetworkSessionState : NetworkBehaviour
         if (!IsServer)
             return;
 
-        for (int i = 0; i < players.Count; i++)
-        {
-            if (players[i].ClientId == player.ClientId)
-            {
-                players[i] = player;
-                return;
-            }
-        }
-
-        players.Add(player);
+        int index = IndexOfClient(player.ClientId);
+        if (index < 0)
+            players.Add(player);
+        else
+            players[index] = player;
     }
 
     public void RemovePlayer(ulong clientId)

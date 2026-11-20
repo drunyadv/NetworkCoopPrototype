@@ -8,7 +8,6 @@ public struct PlayerInfo : INetworkSerializable, IEquatable<PlayerInfo>
     public ushort PingMs;
     public FixedString64Bytes PlayerId;
     public FixedString64Bytes Name;
-    
 
     public PlayerInfo(ulong clientId, string playerId, string name)
     {
@@ -31,7 +30,7 @@ public struct PlayerInfo : INetworkSerializable, IEquatable<PlayerInfo>
     {
         return ClientId == other.ClientId &&
                PlayerId.Equals(other.PlayerId) &&
-               Name.Equals(other.Name) && 
+               Name.Equals(other.Name) &&
                PingMs == other.PingMs;
     }
 }
