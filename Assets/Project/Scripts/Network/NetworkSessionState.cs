@@ -13,7 +13,8 @@ using UnityEngine;
 public sealed class NetworkSessionState : NetworkBehaviour
 {
     public static NetworkSessionState Instance { get; private set; }
-
+    private float nextPingUpdate;
+    private const float PingUpdateInterval = 1f;
     public event Action PlayersChanged;
 
     private NetworkList<PlayerInfo> players;
@@ -34,6 +35,36 @@ public sealed class NetworkSessionState : NetworkBehaviour
 
         return true;
     }
+
+
+
+    private void Update()
+    {
+        if (!IsSpawned || !IsServer || Time.time < nextPingUpdate)
+            return;
+
+        nextPingUpdate = Time.time + PingUpdateInterval;
+
+        var transport = NetworkManager.NetworkConfig.NetworkTransport;
+
+        for (int i = 0; i < players.Count; i++)
+        {
+            PlayerInfo player = players[i];
+
+            ulong rtt = player.ClientId == NetworkManager.ServerClientId
+                ? 0UL
+                : transport.GetCurrentRtt(player.ClientId);
+
+            ushort ping = (ushort)System.Math.Min(rtt, (ulong)ushort.MaxValue);
+
+            if (player.PingMs == ping)
+                continue;
+
+            player.PingMs = ping;
+            players[i] = player;
+        }
+    }
+
 
     public void BeginPlaying(double startTime)
     {

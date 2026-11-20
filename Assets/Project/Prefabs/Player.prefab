@@ -45,6 +45,7 @@ GameObject:
   - component: {fileID: 5798547930247065423}
   - component: {fileID: 7831610976279722881}
   - component: {fileID: 7342266987911108784}
+  - component: {fileID: 4000706638483371787}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -210,6 +211,20 @@ MonoBehaviour:
   deleteAction: {fileID: -5813878510050532914, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   pickupDistance: 3.5
   throwImpulse: 8
+--- !u!114 &4000706638483371787
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3118122175053734337}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ba99f5fa6715d4644bcb21096b35e070, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerColor
+  ShowTopMostFoldoutHeaderGroup: 1
+  bodyRenderer: {fileID: 1860346039230512803}
 --- !u!1 &3469655581818818561
 GameObject:
   m_ObjectHideFlags: 0

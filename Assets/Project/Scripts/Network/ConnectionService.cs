@@ -19,7 +19,11 @@ public sealed class ConnectionService : MonoBehaviour
     [SerializeField] private NetworkSceneLoader sceneLoader;
     [SerializeField] private PlayerSpawner playerSpawner;
 
+    private const float ConnectionTimeout = 12f;
+    private Coroutine connectionTimeoutRoutine;
+
     private const int MaxPlayers = 4;
+    private const string ProtocolVersion = "1";
     private const string MenuScene = "1MainMenu";
     private const string LobbyScene = "2Lobby";
     private const string GameScene = "3Game";
@@ -38,12 +42,16 @@ public sealed class ConnectionService : MonoBehaviour
     public bool IsConnected => networkManager != null && networkManager.IsConnectedClient;
     public bool CanPlay => sceneLoader != null && sceneLoader.CanPlay;
 
+
     [Serializable]
     private sealed class PlayerCredentials
     {
         public string PlayerId;
         public string Name;
+        public string ProtocolVersion;
+        public string BuildVersion;
     }
+
 
     private void Awake()
     {
@@ -145,6 +153,7 @@ public sealed class ConnectionService : MonoBehaviour
             SetStatus("Failed to start client");
             return false;
         }
+        connectionTimeoutRoutine = StartCoroutine(WaitForConnection());
         sceneLoader.RegisterSession();
 
         return true;
@@ -199,6 +208,14 @@ public sealed class ConnectionService : MonoBehaviour
             return;
         }
 
+    if (credentials.ProtocolVersion != ProtocolVersion ||
+        credentials.BuildVersion != Application.version)
+    {
+        Reject(response, "Incompatible game version");
+        return;
+    }
+
+
         if (NetworkSessionState.Instance != null &&
             NetworkSessionState.Instance.ContainsPlayerId(credentials.PlayerId))
         {
@@ -227,6 +244,13 @@ public sealed class ConnectionService : MonoBehaviour
         response.Reason = reason;
     }
 
+
+    public void ShowConnectionError(string message)
+    {
+        SetStatus(message);
+    }
+
+
     private void OnClientConnected(ulong clientId)
     {
         if (networkManager.IsServer)
@@ -244,6 +268,18 @@ public sealed class ConnectionService : MonoBehaviour
                     credentials.Name
                 ));
             }
+        
+        if (clientId == networkManager.LocalClientId)
+        {
+            if (connectionTimeoutRoutine != null)
+            {
+                StopCoroutine(connectionTimeoutRoutine);
+                connectionTimeoutRoutine = null;
+            }
+
+            SetStatus("Connected");
+}
+
 
             return;
         }
@@ -301,11 +337,14 @@ public sealed class ConnectionService : MonoBehaviour
             PlayerPrefs.Save();
         }
 
-        credentials = new PlayerCredentials
-        {
-            PlayerId = id,
-            Name = name
-        };
+    credentials = new PlayerCredentials
+    {
+        PlayerId = id,
+        Name = name,
+        ProtocolVersion = ProtocolVersion,
+        BuildVersion = Application.version
+    };
+
 
         return true;
     }
@@ -320,6 +359,21 @@ public sealed class ConnectionService : MonoBehaviour
 
         return "NetworkCoop.PlayerId.default";
     }
+
+
+    private IEnumerator WaitForConnection()
+    {
+        yield return new WaitForSecondsRealtime(ConnectionTimeout);
+
+        connectionTimeoutRoutine = null;
+
+        if (returningToMenu || networkManager.IsConnectedClient)
+            yield break;
+
+        SetStatus("Connection timed out");
+        StartCoroutine(ReturnToMenuRoutine());
+    }
+
 
     private void SetConnectionPayload(PlayerCredentials credentials)
     {
@@ -366,6 +420,13 @@ public sealed class ConnectionService : MonoBehaviour
             yield break;
 
         returningToMenu = true;
+
+    if (connectionTimeoutRoutine != null)
+    {
+        StopCoroutine(connectionTimeoutRoutine);
+        connectionTimeoutRoutine = null;
+    }
+
         sceneLoader.ResetSession();
         playerSpawner.ResetSession();
 
@@ -380,6 +441,32 @@ public sealed class ConnectionService : MonoBehaviour
 
         returningToMenu = false;
     }
+
+
+    public void KickPlayer(ulong clientId)
+    {
+        if (!networkManager.IsHost)
+            return;
+
+        if (clientId == NetworkManager.ServerClientId)
+            return;
+
+        bool isConnected = false;
+        foreach (ulong connectedClientId in networkManager.ConnectedClientsIds)
+        {
+            if (connectedClientId == clientId)
+            {
+                isConnected = true;
+                break;
+            }
+        }
+
+        if (!isConnected)
+            return;
+
+        networkManager.DisconnectClient(clientId, "You were kicked by the host");
+    }
+
 
     private void SetStatus(string message)
     {

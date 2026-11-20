@@ -58,7 +58,14 @@ public sealed class LobbyView : MonoBehaviour
             );
 
             bool isHost = player.ClientId == NetworkManager.ServerClientId;
-            entry.SetPlayer(player, isHost);
+            
+            entry.SetPlayer(
+                player,
+                isHost,
+                connection != null && connection.IsHost,
+                clientId => connection.KickPlayer(clientId)
+            );
+
         }
 
         playerCountText.text = $"Players: {session.PlayerCount}/4";
